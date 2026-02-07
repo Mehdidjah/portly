@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { LayoutShell } from "@/components/LayoutShell";
 import { EnterpriseOwner } from "@/lib/types";
-import { enterpriseOwnersService } from "@/services/enterpriseOwners.service";
 import { StatusPill } from "@/components/StatusText";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,8 +29,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
+import { useEnterpriseOwners, useCreateEnterpriseOwner, useUpdateEnterpriseOwner } from "@/hooks/useEnterpriseOwners";
 
-// Helper to get initials from company name
 const getInitials = (name: string): string => {
   return name
     .split(" ")
@@ -42,8 +41,9 @@ const getInitials = (name: string): string => {
 };
 
 export default function AdminEnterpriseOwnersPage() {
-  const [owners, setOwners] = useState<EnterpriseOwner[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: owners = [], isLoading } = useEnterpriseOwners();
+  const createMutation = useCreateEnterpriseOwner();
+  const updateMutation = useUpdateEnterpriseOwner();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingOwner, setEditingOwner] = useState<EnterpriseOwner | null>(null);
   const [formData, setFormData] = useState({
@@ -52,20 +52,6 @@ export default function AdminEnterpriseOwnersPage() {
     email: "",
     status: "" as "Active" | "Disabled" | "",
   });
-
-  useEffect(() => {
-    loadOwners();
-  }, []);
-
-  const loadOwners = async () => {
-    setIsLoading(true);
-    try {
-      const data = await enterpriseOwnersService.getEnterpriseOwners();
-      setOwners(data);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleAddOwner = () => {
     setEditingOwner(null);
@@ -94,34 +80,25 @@ export default function AdminEnterpriseOwnersPage() {
       return;
     }
 
-    try {
-      if (editingOwner) {
-        await enterpriseOwnersService.updateEnterpriseOwner(editingOwner.id, {
+    if (editingOwner) {
+      updateMutation.mutate({
+        id: editingOwner.id,
+        updates: {
           companyName: formData.companyName,
           ownerName: formData.ownerName,
           email: formData.email,
           status: formData.status as "Active" | "Disabled",
-        });
-        toast({ title: "Enterprise Owner Updated", description: `${formData.companyName} has been updated` });
-      } else {
-        await enterpriseOwnersService.createEnterpriseOwner(formData as Omit<EnterpriseOwner, "id" | "createdAt" | "containersCount">);
-        toast({ title: "Enterprise Owner Created", description: `${formData.companyName} has been added` });
-      }
-      setIsDialogOpen(false);
-      await loadOwners();
-    } catch {
-      toast({
-        title: "Error",
-        description: "Failed to save enterprise owner",
-        variant: "destructive",
+        },
       });
+    } else {
+      createMutation.mutate(formData as Omit<EnterpriseOwner, "id" | "createdAt" | "containersCount">);
     }
+    setIsDialogOpen(false);
   };
 
   return (
     <LayoutShell showSidebar={true} role="ADMIN">
       <div className="space-y-6">
-        {/* Page Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">Enterprise Owners</h1>
@@ -132,7 +109,6 @@ export default function AdminEnterpriseOwnersPage() {
           </Button>
         </div>
 
-        {/* Enterprise Owners List */}
         <div className="glass-primary-panel overflow-hidden py-2">
           {isLoading ? (
             <div className="py-12 text-center text-muted-foreground">
@@ -181,7 +157,6 @@ export default function AdminEnterpriseOwnersPage() {
           )}
         </div>
 
-        {/* Add/Edit Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent className="glass-strong glass-round border-[rgba(87,106,255,0.25)]">
             <DialogHeader>
@@ -244,8 +219,11 @@ export default function AdminEnterpriseOwnersPage() {
               <Button variant="glass-outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSave}>
-                Save
+              <Button 
+                onClick={handleSave}
+                disabled={createMutation.isPending || updateMutation.isPending}
+              >
+                {createMutation.isPending || updateMutation.isPending ? "Saving..." : "Save"}
               </Button>
             </DialogFooter>
           </DialogContent>

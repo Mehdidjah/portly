@@ -1,30 +1,12 @@
-import { useState, useEffect } from "react";
 import { LayoutShell } from "@/components/LayoutShell";
 import { KpiTile } from "@/components/KpiTile";
-import { statsService, AdminStats, RecentActivity } from "@/services/stats.service";
+import { useAdminStats, useRecentActivity } from "@/hooks/useStats";
 
 export default function AdminDashboardPage() {
-  const [stats, setStats] = useState<AdminStats | null>(null);
-  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: stats, isLoading: statsLoading } = useAdminStats();
+  const { data: recentActivity = [], isLoading: activityLoading } = useRecentActivity();
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    setIsLoading(true);
-    try {
-      const [statsData, activityData] = await Promise.all([
-        statsService.getAdminStats(),
-        statsService.getRecentActivity(),
-      ]);
-      setStats(statsData);
-      setRecentActivity(activityData);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const isLoading = statsLoading || activityLoading;
 
   if (isLoading) {
     return (
@@ -39,13 +21,11 @@ export default function AdminDashboardPage() {
   return (
     <LayoutShell showSidebar={true} role="ADMIN">
       <div className="space-y-6">
-        {/* Page Header */}
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
           <p className="text-muted-foreground">Overview of platform statistics</p>
         </div>
 
-        {/* KPI Tiles Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <KpiTile
             title="Total Enterprises"
@@ -75,7 +55,6 @@ export default function AdminDashboardPage() {
           />
         </div>
 
-        {/* Recent Activity */}
         <div className="glass-primary-panel p-6">
           <h2 className="text-lg font-semibold text-foreground mb-4">Recent Activity</h2>
           <div className="space-y-0">

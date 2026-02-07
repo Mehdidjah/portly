@@ -1,6 +1,6 @@
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "@/pages/LoginPage";
 import EnterprisePage from "@/pages/EnterprisePage";
@@ -10,8 +10,7 @@ import AdminEnterpriseOwnersPage from "@/pages/admin/AdminEnterpriseOwnersPage";
 import AdminSettingsPage from "@/pages/admin/AdminSettingsPage";
 import ManagerScanPage from "@/pages/manager/ManagerScanPage";
 import { authService } from "@/services/auth.service";
-
-const queryClient = new QueryClient();
+import { queryClient } from "@/lib/queryClient";
 
 // Protected Route Component
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {

@@ -422,17 +422,29 @@ The codebase is **fully prepared for Spring Boot backend integration**:
    - Error handling and response parsing
    - Supports Spring Boot ResponseEntity format
 
-2. **Service Layer**:
+2. **TanStack Query Integration**:
+   - Automatic data caching and background refetching
+   - Built-in loading/error states
+   - Automatic cache invalidation after mutations
+   - Request deduplication (reduces backend load)
+   - See `TANSTACK_QUERY_SETUP.md` for details
+
+3. **Service Layer**:
    - All services support both mock and real API
    - Controlled via `VITE_USE_MOCK_DATA` environment variable
    - Automatic fallback to mock data if API unavailable
 
-3. **Configuration**:
+4. **Custom Hooks** (`src/hooks/`):
+   - Ready-to-use hooks for all data operations
+   - `useUsers()`, `useEnterpriseOwners()`, `useContainers()`, etc.
+   - Mutations with automatic cache invalidation
+
+5. **Configuration**:
    - Environment-based API URL configuration
    - Token management via localStorage
    - CORS-ready for Spring Boot
 
-4. **API Documentation**:
+6. **API Documentation**:
    - Complete endpoint documentation in `API_ENDPOINTS.md`
    - Request/response formats specified
    - Error handling guidelines included

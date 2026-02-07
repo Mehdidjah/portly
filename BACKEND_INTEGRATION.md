@@ -18,6 +18,24 @@ The frontend uses a centralized API client (`src/services/apiClient.ts`) that:
 - Supports multiple response formats (Spring Boot ResponseEntity, direct data, etc.)
 - Manages authentication state
 
+## TanStack Query Integration
+
+The frontend uses **TanStack Query (React Query)** for all data fetching:
+
+- **Automatic caching** - Reduces API calls, same data requested multiple times only fetches once
+- **Background refetching** - Data stays fresh automatically (configurable intervals)
+- **Loading/error states** - Built-in state management
+- **Automatic cache invalidation** - After mutations, related data refreshes automatically
+- **Request deduplication** - Multiple components requesting same data = one API call
+
+**Benefits for Backend:**
+- Reduced server load (caching prevents duplicate requests)
+- Better user experience (instant loading from cache)
+- Automatic error handling and retries
+- Background data synchronization
+
+See `TANSTACK_QUERY_SETUP.md` for complete documentation.
+
 ## Authentication Flow
 
 1. **Login**: `POST /auth/login` returns a JWT token

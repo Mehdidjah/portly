@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { toast } from "@/hooks/use-toast";
+import { usePickupAvailability, useAvailableHours, useCreateBooking } from "@/hooks/useBookings";
 
 interface BookingModalProps {
   container: ContainerItem | null;
@@ -30,18 +30,19 @@ export function BookingModal({
   onOpenChange,
   onBookingComplete,
 }: BookingModalProps) {
-  const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [availableHours, setAvailableHours] = useState<string[]>([]);
   const [selectedHour, setSelectedHour] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState<ModalStep>("select");
   const [booking, setBooking] = useState<BookingConfirmation | null>(null);
 
-  // Load available dates when modal opens
+  const { data: availability } = usePickupAvailability(container?.id || "");
+  const { data: availableHours = [] } = useAvailableHours(selectedDate || "");
+  const createBookingMutation = useCreateBooking();
+
+  const availableDates = availability?.availableDates || [];
+
   useEffect(() => {
     if (open && container) {
-      loadAvailability();
       setSelectedDate(null);
       setSelectedHour(null);
       setStep("select");
@@ -49,59 +50,36 @@ export function BookingModal({
     }
   }, [open, container]);
 
-  // Load available hours when date is selected
   useEffect(() => {
     if (selectedDate) {
-      loadAvailableHours(selectedDate);
       setSelectedHour(null);
     }
   }, [selectedDate]);
 
-  const loadAvailability = async () => {
-    if (!container) return;
-    const availability = await bookingService.getPickupAvailability(container.id);
-    setAvailableDates(availability.availableDates);
-  };
-
-  const loadAvailableHours = async (date: string) => {
-    const hours = await bookingService.getAvailableHours(date);
-    setAvailableHours(hours);
-  };
-
-  const handleConfirm = async () => {
+  const handleConfirm = () => {
     if (!container || !selectedDate || !selectedHour) return;
 
-    setIsLoading(true);
-    try {
-      const result = await bookingService.createBooking({
+    createBookingMutation.mutate(
+      {
         containerId: container.id,
         date: selectedDate,
         hour: selectedHour,
-      });
-
-      if (result.success && result.bookingId) {
-        const bookingData: BookingConfirmation = {
-          bookingId: result.bookingId,
-          containerId: container.id,
-          date: selectedDate,
-          time: selectedHour,
-        };
-        setBooking(bookingData);
-        setStep("confirmed");
-        toast({
-          title: "Appointment Scheduled",
-          description: result.message,
-        });
+      },
+      {
+        onSuccess: (result) => {
+          if (result.bookingId) {
+            const bookingData: BookingConfirmation = {
+              bookingId: result.bookingId,
+              containerId: container.id,
+              date: selectedDate,
+              time: selectedHour,
+            };
+            setBooking(bookingData);
+            setStep("confirmed");
+          }
+        },
       }
-    } catch (error) {
-      toast({
-        title: "Booking Failed",
-        description: "Unable to schedule appointment. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    );
   };
 
   const handleClose = () => {
@@ -137,7 +115,6 @@ export function BookingModal({
             </DialogHeader>
 
             <div className="py-4 space-y-6">
-              {/* Calendar Section */}
               <div className="space-y-3">
                 <p className="text-sm font-medium">
                   {selectedDate ? `Selected: ${selectedDate}` : "Select an available pickup date:"}
@@ -149,7 +126,6 @@ export function BookingModal({
                 />
               </div>
 
-              {/* Time Slots Section */}
               {selectedDate && (
                 <div className="animate-fade-in glass-primary-panel p-4">
                   <TimeSlotsPicker
@@ -165,15 +141,15 @@ export function BookingModal({
               <Button
                 variant="glass-outline"
                 onClick={handleClose}
-                disabled={isLoading}
+                disabled={createBookingMutation.isPending}
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleConfirm}
-                disabled={!selectedDate || !selectedHour || isLoading}
+                disabled={!selectedDate || !selectedHour || createBookingMutation.isPending}
               >
-                {isLoading ? "Scheduling..." : "Confirm"}
+                {createBookingMutation.isPending ? "Scheduling..." : "Confirm"}
               </Button>
             </DialogFooter>
           </>
@@ -187,7 +163,6 @@ export function BookingModal({
             </DialogHeader>
 
             <div className="py-6 space-y-6">
-              {/* Booking Summary */}
               <div className="space-y-2 p-4 glass-primary-panel">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Booking ID:</span>
@@ -207,7 +182,6 @@ export function BookingModal({
                 </div>
               </div>
 
-              {/* QR Code */}
               <div className="flex flex-col items-center">
                 <p className="text-sm text-muted-foreground mb-4">
                   Present this QR code at the terminal

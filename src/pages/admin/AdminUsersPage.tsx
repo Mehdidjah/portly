@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { LayoutShell } from "@/components/LayoutShell";
 import { User, Role } from "@/lib/types";
-import { usersService } from "@/services/users.service";
 import { StatusPill } from "@/components/StatusText";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,10 +28,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useUsers, useCreateUser, useUpdateUser, useToggleUserStatus } from "@/hooks/useUsers";
 
-// Helper to get initials from name
 const getInitials = (name: string): string => {
   return name
     .split(" ")
@@ -43,8 +41,10 @@ const getInitials = (name: string): string => {
 };
 
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: users = [], isLoading } = useUsers();
+  const createMutation = useCreateUser();
+  const updateMutation = useUpdateUser();
+  const toggleStatusMutation = useToggleUserStatus();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [formData, setFormData] = useState({
@@ -53,20 +53,6 @@ export default function AdminUsersPage() {
     role: "" as Role | "",
     status: "" as "Active" | "Disabled" | "",
   });
-
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-  const loadUsers = async () => {
-    setIsLoading(true);
-    try {
-      const data = await usersService.getUsers();
-      setUsers(data);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleAddUser = () => {
     setEditingUser(null);
@@ -85,50 +71,24 @@ export default function AdminUsersPage() {
     setIsDialogOpen(true);
   };
 
-  const handleToggleStatus = async (user: User) => {
-    try {
-      await usersService.toggleUserStatus(user.id);
-      await loadUsers();
-      toast({
-        title: "Status Updated",
-        description: `${user.name} is now ${user.status === "Active" ? "Disabled" : "Active"}`,
-      });
-    } catch {
-      toast({
-        title: "Error",
-        description: "Failed to update user status",
-        variant: "destructive",
-      });
-    }
+  const handleToggleStatus = (user: User) => {
+    toggleStatusMutation.mutate(user.id);
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!formData.name || !formData.email || !formData.role || !formData.status) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in all fields",
-        variant: "destructive",
-      });
       return;
     }
 
-    try {
-      if (editingUser) {
-        await usersService.updateUser(editingUser.id, formData as Omit<User, "id" | "createdAt">);
-        toast({ title: "User Updated", description: `${formData.name} has been updated` });
-      } else {
-        await usersService.createUser(formData as Omit<User, "id" | "createdAt">);
-        toast({ title: "User Created", description: `${formData.name} has been added` });
-      }
-      setIsDialogOpen(false);
-      await loadUsers();
-    } catch {
-      toast({
-        title: "Error",
-        description: "Failed to save user",
-        variant: "destructive",
+    if (editingUser) {
+      updateMutation.mutate({
+        id: editingUser.id,
+        updates: formData as Omit<User, "id" | "createdAt">,
       });
+    } else {
+      createMutation.mutate(formData as Omit<User, "id" | "createdAt">);
     }
+    setIsDialogOpen(false);
   };
 
   const getRoleBadgeClass = (role: Role) => {
@@ -145,7 +105,6 @@ export default function AdminUsersPage() {
   return (
     <LayoutShell showSidebar={true} role="ADMIN">
       <div className="space-y-6">
-        {/* Page Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">Users</h1>
@@ -156,7 +115,6 @@ export default function AdminUsersPage() {
           </Button>
         </div>
 
-        {/* Users List */}
         <div className="glass-primary-panel overflow-hidden py-2">
           {isLoading ? (
             <div className="py-12 text-center text-muted-foreground">
@@ -213,7 +171,6 @@ export default function AdminUsersPage() {
           )}
         </div>
 
-        {/* Add/Edit Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent className="glass-strong glass-round border-[rgba(87,106,255,0.25)]">
             <DialogHeader>
@@ -283,8 +240,11 @@ export default function AdminUsersPage() {
               <Button variant="glass-outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSave}>
-                Save
+              <Button 
+                onClick={handleSave}
+                disabled={createMutation.isPending || updateMutation.isPending}
+              >
+                {createMutation.isPending || updateMutation.isPending ? "Saving..." : "Save"}
               </Button>
             </DialogFooter>
           </DialogContent>

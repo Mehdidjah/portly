@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { LayoutShell } from "@/components/LayoutShell";
 import { PlatformSettings } from "@/lib/types";
-import { settingsService } from "@/services/settings.service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { toast } from "@/hooks/use-toast";
+import { useSettings, useUpdateSettings } from "@/hooks/useSettings";
 
 const timeZones = [
   "UTC",
@@ -34,49 +33,33 @@ const slotDurations = [
 ];
 
 export default function AdminSettingsPage() {
-  const [settings, setSettings] = useState<PlatformSettings | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const { data: settings, isLoading } = useSettings();
+  const updateMutation = useUpdateSettings();
+  const [localSettings, setLocalSettings] = useState<PlatformSettings | null>(null);
   const [showSaved, setShowSaved] = useState(false);
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
+  if (settings && !localSettings) {
+    setLocalSettings(settings);
+  }
 
-  const loadSettings = async () => {
-    setIsLoading(true);
-    try {
-      const data = await settingsService.getSettings();
-      setSettings(data);
-    } finally {
-      setIsLoading(false);
+  const handleSave = () => {
+    if (!localSettings) return;
+
+    updateMutation.mutate(localSettings, {
+      onSuccess: () => {
+        setShowSaved(true);
+        setTimeout(() => setShowSaved(false), 3000);
+      },
+    });
+  };
+
+  const handleReset = () => {
+    if (settings) {
+      setLocalSettings(settings);
     }
   };
 
-  const handleSave = async () => {
-    if (!settings) return;
-
-    setIsSaving(true);
-    try {
-      await settingsService.updateSettings(settings);
-      setShowSaved(true);
-      setTimeout(() => setShowSaved(false), 3000);
-      toast({
-        title: "Settings Saved",
-        description: "Platform settings have been updated",
-      });
-    } catch {
-      toast({
-        title: "Error",
-        description: "Failed to save settings",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  if (isLoading || !settings) {
+  if (isLoading || !settings || !localSettings) {
     return (
       <LayoutShell showSidebar={true} role="ADMIN">
         <div className="py-12 text-center text-muted-foreground">
@@ -89,13 +72,11 @@ export default function AdminSettingsPage() {
   return (
     <LayoutShell showSidebar={true} role="ADMIN">
       <div className="space-y-6 max-w-2xl">
-        {/* Page Header */}
         <div className="glass-primary-panel p-5 section-animate">
           <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
           <p className="text-muted-foreground mt-1">Configure platform properties</p>
         </div>
 
-        {/* General Settings */}
         <div className="glass-section p-6 space-y-5 section-animate">
           <h2 className="text-lg font-semibold text-foreground">General</h2>
           
@@ -103,8 +84,8 @@ export default function AdminSettingsPage() {
             <Label htmlFor="platformName">Platform Name</Label>
             <Input
               id="platformName"
-              value={settings.platformName}
-              onChange={(e) => setSettings({ ...settings, platformName: e.target.value })}
+              value={localSettings.platformName}
+              onChange={(e) => setLocalSettings({ ...localSettings, platformName: e.target.value })}
               className="glass-control"
             />
           </div>
@@ -112,8 +93,8 @@ export default function AdminSettingsPage() {
           <div className="space-y-2">
             <Label htmlFor="timezone">Default Time Zone</Label>
             <Select
-              value={settings.defaultTimeZone}
-              onValueChange={(value) => setSettings({ ...settings, defaultTimeZone: value })}
+              value={localSettings.defaultTimeZone}
+              onValueChange={(value) => setLocalSettings({ ...localSettings, defaultTimeZone: value })}
             >
               <SelectTrigger className="glass-control">
                 <SelectValue />
@@ -129,15 +110,14 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
-        {/* Slot Configuration */}
         <div className="glass-section p-6 space-y-5 section-animate">
           <h2 className="text-lg font-semibold text-foreground">Slot Configuration</h2>
           
           <div className="space-y-2">
             <Label htmlFor="slotDuration">Slot Duration Default</Label>
             <Select
-              value={String(settings.slotDurationMinutes)}
-              onValueChange={(value) => setSettings({ ...settings, slotDurationMinutes: Number(value) })}
+              value={String(localSettings.slotDurationMinutes)}
+              onValueChange={(value) => setLocalSettings({ ...localSettings, slotDurationMinutes: Number(value) })}
             >
               <SelectTrigger className="glass-control">
                 <SelectValue />
@@ -159,14 +139,13 @@ export default function AdminSettingsPage() {
               type="number"
               min={1}
               max={100}
-              value={settings.defaultCapacity}
-              onChange={(e) => setSettings({ ...settings, defaultCapacity: Number(e.target.value) })}
+              value={localSettings.defaultCapacity}
+              onChange={(e) => setLocalSettings({ ...localSettings, defaultCapacity: Number(e.target.value) })}
               className="glass-control"
             />
           </div>
         </div>
 
-        {/* Notifications */}
         <div className="glass-section p-6 space-y-5 section-animate">
           <h2 className="text-lg font-semibold text-foreground">Notifications</h2>
           
@@ -176,8 +155,8 @@ export default function AdminSettingsPage() {
               <p className="text-sm text-muted-foreground">Send notification when appointment is scheduled</p>
             </div>
             <Switch
-              checked={settings.notifyOnBooking}
-              onCheckedChange={(checked) => setSettings({ ...settings, notifyOnBooking: checked })}
+              checked={localSettings.notifyOnBooking}
+              onCheckedChange={(checked) => setLocalSettings({ ...localSettings, notifyOnBooking: checked })}
               className="glass-switch"
             />
           </div>
@@ -188,8 +167,8 @@ export default function AdminSettingsPage() {
               <p className="text-sm text-muted-foreground">Send notification when container arrives</p>
             </div>
             <Switch
-              checked={settings.notifyOnArrival}
-              onCheckedChange={(checked) => setSettings({ ...settings, notifyOnArrival: checked })}
+              checked={localSettings.notifyOnArrival}
+              onCheckedChange={(checked) => setLocalSettings({ ...localSettings, notifyOnArrival: checked })}
               className="glass-switch"
             />
           </div>
@@ -200,14 +179,13 @@ export default function AdminSettingsPage() {
               <p className="text-sm text-muted-foreground">Send notification when appointment is cancelled</p>
             </div>
             <Switch
-              checked={settings.notifyOnCancellation}
-              onCheckedChange={(checked) => setSettings({ ...settings, notifyOnCancellation: checked })}
+              checked={localSettings.notifyOnCancellation}
+              onCheckedChange={(checked) => setLocalSettings({ ...localSettings, notifyOnCancellation: checked })}
               className="glass-switch"
             />
           </div>
         </div>
 
-        {/* Maintenance */}
         <div className="glass-section p-6 section-animate">
           <h2 className="text-lg font-semibold text-foreground mb-5">Maintenance</h2>
           
@@ -217,19 +195,25 @@ export default function AdminSettingsPage() {
               <p className="text-sm text-muted-foreground">Temporarily disable platform access</p>
             </div>
             <Switch
-              checked={settings.maintenanceMode}
-              onCheckedChange={(checked) => setSettings({ ...settings, maintenanceMode: checked })}
+              checked={localSettings.maintenanceMode}
+              onCheckedChange={(checked) => setLocalSettings({ ...localSettings, maintenanceMode: checked })}
               className="glass-switch"
             />
           </div>
         </div>
 
-        {/* Save Button */}
         <div className="flex items-center gap-4 section-animate">
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? "Saving..." : "Save Changes"}
+          <Button 
+            onClick={handleSave} 
+            disabled={updateMutation.isPending}
+          >
+            {updateMutation.isPending ? "Saving..." : "Save Changes"}
           </Button>
-          <Button variant="glass-outline" onClick={loadSettings} disabled={isSaving}>
+          <Button 
+            variant="glass-outline" 
+            onClick={handleReset} 
+            disabled={updateMutation.isPending}
+          >
             Reset
           </Button>
           {showSaved && (
